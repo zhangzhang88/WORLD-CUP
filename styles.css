@@ -568,8 +568,14 @@ select:focus {
 }
 
 @media (max-width: 760px) {
+  :root {
+    --mobile-poster-width: calc(100vw - 28px);
+    --mobile-poster-scale: calc((100vw - 28px) / 980);
+  }
+
   .shell {
     padding: 14px;
+    overflow-x: hidden;
   }
 
   .controls {
@@ -598,6 +604,7 @@ select:focus {
 
   .poster {
     width: 980px;
+    aspect-ratio: 1.36 / 1;
     transform: scale(calc((100vw - 28px) / 980));
     transform-origin: top left;
     margin: 0;
@@ -605,7 +612,9 @@ select:focus {
 
   .preview-wrap {
     display: block;
-    min-height: calc((100vw - 28px) / 1.36);
-    overflow: hidden;
+    width: var(--mobile-poster-width);
+    min-height: calc(720px * var(--mobile-poster-scale));
+    margin: 0 auto;
+    overflow: visible;
   }
 }
