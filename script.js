@@ -498,17 +498,18 @@ function drawExportHeader(context, theme, width) {
   context.fillStyle = theme.accent;
   context.font = "900 14px sans-serif";
   context.textAlign = "left";
-  context.fillText("FIFA WORLD CUP", 34, 42);
+  context.textBaseline = "top";
+  context.fillText("FIFA WORLD CUP", 34, 30);
 
   context.fillStyle = theme.text;
-  context.font = "900 43px sans-serif";
   context.textBaseline = "top";
-  drawTextFit(context, chartTitle.value.trim() || "世界杯冠军预测", 34, 54, 640, 48, 43, theme.text, "left");
+  drawTextFit(context, chartTitle.value.trim() || "世界杯冠军预测", 34, 58, 720, 54, 42, theme.text, "left", false, "top");
 
   context.fillStyle = theme.muted;
   context.font = "800 15px sans-serif";
+  context.textBaseline = "top";
   context.textAlign = "right";
-  context.fillText(watermark.value.trim() || " ", width - 34, 42);
+  context.fillText(watermark.value.trim() || " ", width - 34, 32);
 }
 
 function drawExportBracket(context, theme, width, top, height) {
@@ -659,11 +660,11 @@ function drawExportChampionStrip(context, theme, width, height) {
   drawTextFit(context, getChampion(), width / 2 + 10, height - 38, 320, 28, 27, theme.accent, "left");
 }
 
-function drawTextFit(context, text, x, y, maxWidth, maxHeight, startSize, color, align = "left", centerY = false) {
+function drawTextFit(context, text, x, y, maxWidth, maxHeight, startSize, color, align = "left", centerY = false, baseline = null) {
   let size = startSize;
   context.fillStyle = color;
   context.textAlign = align;
-  context.textBaseline = centerY ? "middle" : "alphabetic";
+  context.textBaseline = baseline || (centerY ? "middle" : "alphabetic");
   while (size > 8) {
     context.font = `900 ${size}px sans-serif`;
     if (context.measureText(text).width <= maxWidth) break;
