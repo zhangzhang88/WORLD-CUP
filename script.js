@@ -418,58 +418,277 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;");
 }
 
-function inlineCssText() {
-  const styles = [...document.styleSheets]
-    .map((sheet) => {
-      try {
-        return [...sheet.cssRules].map((rule) => rule.cssText).join("\n");
-      } catch {
-        return "";
-      }
-    })
-    .join("\n");
-  return styles.replaceAll("backdrop-filter: blur(16px);", "");
-}
-
 function exportPoster() {
-  drawBracketLines();
-  const clone = poster.cloneNode(true);
-  clone.style.width = "980px";
-  clone.style.height = "720px";
-  clone.style.transform = "none";
+  const canvas = document.createElement("canvas");
+  canvas.width = 1960;
+  canvas.height = 1440;
+  const context = canvas.getContext("2d");
+  context.scale(2, 2);
+  drawExportPoster(context);
 
-  const markup = new XMLSerializer().serializeToString(clone);
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="980" height="720">
-      <foreignObject width="100%" height="100%">
-        <div xmlns="http://www.w3.org/1999/xhtml">
-          <style>${inlineCssText()}</style>
-          ${markup}
-        </div>
-      </foreignObject>
-    </svg>
-  `;
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      alert("导出失败，请再试一次。");
+      return;
+    }
 
-  const image = new Image();
-  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-
-  image.onload = () => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 1960;
-    canvas.height = 1440;
-    const context = canvas.getContext("2d");
-    context.scale(2, 2);
-    context.drawImage(image, 0, 0);
-    URL.revokeObjectURL(url);
-
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.download = `${getChampion()}-世界杯预测图.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.href = url;
+    document.body.append(link);
     link.click();
-  };
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }, "image/png");
+}
 
-  image.src = url;
+function drawExportPoster(context) {
+  const theme = exportTheme(themeSelect.value);
+  const width = 980;
+  const height = 720;
+  const bracketTop = 158;
+  const bracketHeight = 418;
+
+  drawPosterBackground(context, theme, width, height);
+  drawExportHeader(context, theme, width);
+  drawExportBracket(context, theme, width, bracketTop, bracketHeight);
+  drawExportChampionStrip(context, theme, width, height);
+}
+
+function exportTheme(themeName) {
+  const themes = {
+    midnight: { bg1: "#101513", bg2: "#17231d", text: "#f4f7f2", muted: "#a9b7af", accent: "#d8ff5f", line: "rgba(216,255,95,0.58)", card: "rgba(255,255,255,0.07)" },
+    paper: { bg1: "#f4efe2", bg2: "#e8dfcb", text: "#172018", muted: "#536157", accent: "#c5142f", line: "rgba(197,20,47,0.55)", card: "rgba(23,32,24,0.05)" },
+    electric: { bg1: "#08111f", bg2: "#122344", text: "#f4f7f2", muted: "#a9b7af", accent: "#67e8f9", line: "rgba(103,232,249,0.58)", card: "rgba(255,255,255,0.07)" },
+    crimson: { bg1: "#8e1028", bg2: "#420817", text: "#fff6f1", muted: "#f4b7ad", accent: "#ffd15a", line: "rgba(255,209,90,0.6)", card: "rgba(255,246,241,0.08)" },
+    gold: { bg1: "#090b0d", bg2: "#2c2412", text: "#fff8df", muted: "#cdbf8b", accent: "#f5c95a", line: "rgba(245,201,90,0.58)", card: "rgba(255,248,223,0.07)" },
+    ice: { bg1: "#f8fbfc", bg2: "#d8e8ed", text: "#10212a", muted: "#55707b", accent: "#0a8fbb", line: "rgba(10,143,187,0.58)", card: "rgba(16,33,42,0.06)" },
+  };
+  return themes[themeName] || themes.crimson;
+}
+
+function drawPosterBackground(context, theme, width, height) {
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, theme.bg1);
+  gradient.addColorStop(1, theme.bg2);
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+
+  context.save();
+  context.globalAlpha = 0.16;
+  context.strokeStyle = theme.text;
+  context.lineWidth = 1;
+  for (let x = 0; x <= width; x += 44) {
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.lineTo(x, height);
+    context.stroke();
+  }
+  for (let y = 0; y <= height; y += 44) {
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(width, y);
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawExportHeader(context, theme, width) {
+  context.fillStyle = theme.accent;
+  context.font = "900 14px sans-serif";
+  context.textAlign = "left";
+  context.fillText("FIFA WORLD CUP", 34, 42);
+
+  context.fillStyle = theme.text;
+  context.font = "900 43px sans-serif";
+  context.textBaseline = "top";
+  drawTextFit(context, chartTitle.value.trim() || "世界杯冠军预测", 34, 54, 640, 48, 43, theme.text, "left");
+
+  context.fillStyle = theme.muted;
+  context.font = "800 15px sans-serif";
+  context.textAlign = "right";
+  context.fillText(watermark.value.trim() || " ", width - 34, 42);
+}
+
+function drawExportBracket(context, theme, width, top, height) {
+  const championRect = { x: 396, y: top + height / 2 + 82, w: 188, h: 58 };
+  const columns = [
+    { x: 34, w: 104, teams: getRoundTeams(0).slice(0, 8), round: 0 },
+    { x: 164, w: 96, teams: getRoundTeams(1).slice(0, 4), round: 1 },
+    { x: 286, w: 86, teams: getRoundTeams(2).slice(0, 2), round: 2 },
+    { x: 396, w: 188, teams: getRoundTeams(3), round: 3 },
+    { x: 608, w: 86, teams: getRoundTeams(2).slice(2, 4), round: 2 },
+    { x: 720, w: 96, teams: getRoundTeams(1).slice(4, 8), round: 1 },
+    { x: 842, w: 104, teams: getRoundTeams(0).slice(8, 16), round: 0 },
+  ];
+
+  const boxes = [];
+  columns.forEach((column, columnIndex) => {
+    const count = column.teams.length;
+    const boxH = column.round === 3 ? 42 : 36;
+    const yList = positionsFor(count / 2, top, height, boxH * 2 + 6);
+    for (let i = 0; i < count; i += 2) {
+      const y = yList[i / 2];
+      const matchIndex = exportMatchIndex(column.round, columnIndex, i / 2);
+      const matchTeams = [column.teams[i], column.teams[i + 1]];
+      matchTeams.forEach((team, teamOffset) => {
+        const rect = {
+          x: column.x,
+          y: y + teamOffset * (boxH + 6),
+          w: column.w,
+          h: boxH,
+          team,
+          round: column.round,
+          match: matchIndex,
+        };
+        boxes.push(rect);
+      });
+    }
+  });
+
+  drawExportConnectors(context, theme, boxes, championRect);
+  boxes.forEach((box) => drawTeamBox(context, theme, box));
+  drawChampionCard(context, theme, championRect);
+}
+
+function positionsFor(matchCount, top, height, matchHeight) {
+  if (matchCount === 1) {
+    return [top + height / 2 - matchHeight / 2 - 34];
+  }
+  const available = height - matchHeight;
+  return Array.from({ length: matchCount }, (_, index) => top + (available * index) / (matchCount - 1));
+}
+
+function exportMatchIndex(round, columnIndex, localIndex) {
+  if (round === 0) return columnIndex === 0 ? localIndex : localIndex + 4;
+  if (round === 1) return columnIndex === 1 ? localIndex : localIndex + 2;
+  if (round === 2) return columnIndex === 2 ? localIndex : localIndex + 1;
+  return 0;
+}
+
+function drawTeamBox(context, theme, rect) {
+  const selected = state.picks[pickKey(rect.round, rect.match)] === rect.team;
+  roundRect(context, rect.x, rect.y, rect.w, rect.h, 7);
+  context.fillStyle = selected ? transparentize(theme.accent, 0.22) : theme.card;
+  context.fill();
+  context.strokeStyle = selected ? theme.accent : transparentize(theme.text, 0.22);
+  context.lineWidth = selected ? 2 : 1;
+  context.stroke();
+
+  const label = `${teamFlags[rect.team] || ""} ${rect.team}`.trim();
+  drawTextFit(context, label, rect.x + 8, rect.y + rect.h / 2, rect.w - 16, rect.h - 6, rect.round === 3 ? 14 : 12, theme.text, "left", true);
+}
+
+function drawExportConnectors(context, theme, boxes, championRect) {
+  context.strokeStyle = theme.line;
+  context.lineWidth = 2.5;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+
+  const grouped = new Map();
+  boxes.forEach((box) => grouped.set(`${box.round}-${box.match}-${box.team}`, box));
+
+  for (let round = 0; round < 3; round += 1) {
+    const current = getRoundTeams(round);
+    const next = getRoundTeams(round + 1);
+    for (let i = 0; i < current.length; i += 2) {
+      const matchIndex = i / 2;
+      const winner = state.picks[pickKey(round, matchIndex)] || current[i];
+      const from = grouped.get(`${round}-${matchIndex}-${winner}`);
+      const nextMatch = Math.floor(matchIndex / 2);
+      const to = grouped.get(`${round + 1}-${nextMatch}-${winner || next[nextMatch]}`);
+      if (from && to) {
+        connectRects(context, from, to);
+      }
+    }
+  }
+
+  const finalTeams = getRoundTeams(3);
+  const champion = getChampion();
+  const from = grouped.get(`3-0-${champion}`) || grouped.get(`3-0-${finalTeams[0]}`);
+  if (from) {
+    connectRects(context, from, championRect);
+  }
+}
+
+function connectRects(context, from, to) {
+  const fromRight = from.x < to.x;
+  const sx = fromRight ? from.x + from.w : from.x;
+  const sy = from.y + from.h / 2;
+  const ex = fromRight ? to.x : to.x + to.w;
+  const ey = to.y + to.h / 2;
+  const midX = sx + (ex - sx) * 0.5;
+  context.beginPath();
+  context.moveTo(sx, sy);
+  context.lineTo(midX, sy);
+  context.lineTo(midX, ey);
+  context.lineTo(ex, ey);
+  context.stroke();
+}
+
+function drawChampionCard(context, theme, rect) {
+  roundRect(context, rect.x, rect.y, rect.w, rect.h, 8);
+  context.fillStyle = transparentize(theme.accent, 0.18);
+  context.fill();
+  context.strokeStyle = theme.accent;
+  context.lineWidth = 2;
+  context.stroke();
+
+  context.fillStyle = theme.muted;
+  context.font = "900 13px sans-serif";
+  context.textAlign = "center";
+  context.fillText("冠军", rect.x + rect.w / 2, rect.y + 19);
+  drawTextFit(context, getChampion(), rect.x + 12, rect.y + 38, rect.w - 24, 24, 22, theme.accent, "center");
+}
+
+function drawExportChampionStrip(context, theme, width, height) {
+  context.strokeStyle = transparentize(theme.text, 0.22);
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(34, height - 72);
+  context.lineTo(width - 34, height - 72);
+  context.moveTo(34, height - 18);
+  context.lineTo(width - 34, height - 18);
+  context.stroke();
+
+  context.fillStyle = theme.accent;
+  context.font = "900 13px sans-serif";
+  context.textAlign = "right";
+  context.fillText("冠军预测", width / 2 - 12, height - 38);
+  drawTextFit(context, getChampion(), width / 2 + 10, height - 38, 320, 28, 27, theme.accent, "left");
+}
+
+function drawTextFit(context, text, x, y, maxWidth, maxHeight, startSize, color, align = "left", centerY = false) {
+  let size = startSize;
+  context.fillStyle = color;
+  context.textAlign = align;
+  context.textBaseline = centerY ? "middle" : "alphabetic";
+  while (size > 8) {
+    context.font = `900 ${size}px sans-serif`;
+    if (context.measureText(text).width <= maxWidth) break;
+    size -= 1;
+  }
+  const drawX = align === "center" ? x + maxWidth / 2 : x;
+  context.fillText(text, drawX, y);
+}
+
+function roundRect(context, x, y, width, height, radius) {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.arcTo(x + width, y, x + width, y + height, radius);
+  context.arcTo(x + width, y + height, x, y + height, radius);
+  context.arcTo(x, y + height, x, y, radius);
+  context.arcTo(x, y, x + width, y, radius);
+  context.closePath();
+}
+
+function transparentize(hex, alpha) {
+  const value = hex.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 document.querySelector("#resetTeams").addEventListener("click", () => {
