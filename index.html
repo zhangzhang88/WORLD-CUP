@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>世界杯预测图生成器</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="controls" aria-label="预测设置">
+        <div class="brand">
+          <span class="mark">26</span>
+          <div>
+            <h1>世界杯预测图生成器</h1>
+            <p>从官方 48 队中选择 16 强，生成你的冠军预测图。</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <label for="chartTitle">标题</label>
+          <input id="chartTitle" type="text" value="2026 世界杯冠军预测" maxlength="28" />
+        </div>
+
+        <div class="panel two">
+          <label for="themeSelect">风格</label>
+          <select id="themeSelect">
+            <option value="midnight">午夜绿茵</option>
+            <option value="paper">赛程海报</option>
+            <option value="electric">电光蓝</option>
+            <option value="crimson" selected>冠军红</option>
+            <option value="gold">金杯黑金</option>
+            <option value="ice">冰雪白</option>
+          </select>
+
+          <label for="watermark">署名</label>
+          <input id="watermark" type="text" value="@我的预测" maxlength="20" />
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <label>从官方 48 队选择 16 强</label>
+            <button id="resetTeams" type="button">重置</button>
+          </div>
+          <p class="panel-note">名单基于 FIFA 已确认的 2026 世界杯 48 支参赛队。</p>
+          <div id="teamEditor" class="team-editor"></div>
+        </div>
+
+        <details class="official-list">
+          <summary>查看官方 48 队名单</summary>
+          <div id="officialTeams" class="official-teams"></div>
+        </details>
+
+        <div class="actions">
+          <button id="randomize" class="secondary" type="button">随机预测</button>
+          <button id="exportPng" class="primary" type="button">导出 PNG</button>
+        </div>
+      </section>
+
+      <section class="preview-wrap" aria-label="预测图预览">
+        <div id="poster" class="poster theme-crimson">
+          <div class="poster-top">
+            <div>
+              <span class="eyebrow">FIFA WORLD CUP</span>
+              <h2 id="posterTitle">2026 世界杯冠军预测</h2>
+            </div>
+            <div id="posterWatermark" class="watermark">@我的预测</div>
+          </div>
+
+          <div id="bracket" class="bracket" aria-live="polite"></div>
+
+          <div class="champion-strip">
+            <span>冠军预测</span>
+            <strong id="championName">阿根廷</strong>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./script.js"></script>
+  </body>
+</html>
