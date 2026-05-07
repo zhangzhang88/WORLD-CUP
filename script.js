@@ -423,91 +423,14 @@ function escapeHtml(value) {
 }
 
 function exportPoster() {
-  exportPosterFromDom().catch((error) => {
-    console.error("DOM export failed.", error);
-    alert("导出失败：浏览器没有成功渲染当前海报，请刷新页面后再试。");
-  });
-}
-
-function inlineCssText() {
-  const styles = [...document.styleSheets]
-    .map((sheet) => {
-      try {
-        return [...sheet.cssRules].map((rule) => rule.cssText).join("\n");
-      } catch {
-        return "";
-      }
-    })
-    .join("\n");
-  return styles.replaceAll("backdrop-filter: blur(16px);", "");
-}
-
-async function exportPosterFromDom() {
   drawBracketLines();
-  const clone = poster.cloneNode(true);
-  clone.style.width = "980px";
-  clone.style.height = "720px";
-  clone.style.maxWidth = "none";
-  clone.style.transform = "none";
-  clone.style.margin = "0";
-  clone.querySelector(".bracket-lines")?.remove();
-
-  const sandbox = document.createElement("div");
-  sandbox.style.position = "fixed";
-  sandbox.style.left = "-12000px";
-  sandbox.style.top = "0";
-  sandbox.style.width = "980px";
-  sandbox.style.height = "720px";
-  sandbox.style.pointerEvents = "none";
-  sandbox.style.opacity = "0";
-  sandbox.append(clone);
-  document.body.append(sandbox);
-
-  await new Promise((resolve) => requestAnimationFrame(resolve));
-
-  const cloneBracket = clone.querySelector("#bracket");
-  drawBracketLinesFor(cloneBracket);
-
-  const markup = new XMLSerializer().serializeToString(clone);
-  sandbox.remove();
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="980" height="720" viewBox="0 0 980 720">
-      <foreignObject width="980" height="720">
-        <div xmlns="http://www.w3.org/1999/xhtml">
-          <style>${inlineCssText()}</style>
-          ${markup}
-        </div>
-      </foreignObject>
-    </svg>
-  `;
-
-  const image = new Image();
-  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-
-  return new Promise((resolve, reject) => {
-    image.onload = () => {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = 1960;
-        canvas.height = 1440;
-        const context = canvas.getContext("2d");
-        context.scale(2, 2);
-        context.drawImage(image, 0, 0);
-        URL.revokeObjectURL(url);
-        downloadCanvas(canvas);
-        resolve();
-      } catch (error) {
-        URL.revokeObjectURL(url);
-        reject(error);
-      }
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("无法渲染海报 SVG"));
-    };
-    image.src = url;
-  });
+  const canvas = document.createElement("canvas");
+  canvas.width = 1960;
+  canvas.height = 1440;
+  const context = canvas.getContext("2d");
+  context.scale(2, 2);
+  drawMeasuredPoster(context);
+  downloadCanvas(canvas);
 }
 
 function downloadCanvas(canvas) {
@@ -526,6 +449,191 @@ function downloadCanvas(canvas) {
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, "image/png");
+}
+
+function drawMeasuredPoster(context) {
+  const width = 980;
+  const height = 720;
+  const theme = measuredTheme(themeSelect.value);
+  const posterRect = poster.getBoundingClientRect();
+
+  drawMeasuredBackground(context, theme, width, height);
+  drawMeasuredBracketLines(context, theme, posterRect, width, height);
+
+  poster.querySelectorAll(".team, .final-card").forEach((element) => {
+    drawMeasuredCard(context, element, posterRect, width, height, theme);
+  });
+
+  [
+    ".eyebrow",
+    "#posterTitle",
+    "#posterWatermark",
+    ".final-card small",
+    ".final-card strong",
+    ".champion-strip span",
+    "#championName",
+  ].forEach((selector) => {
+    poster.querySelectorAll(selector).forEach((element) => {
+      drawMeasuredText(context, element, posterRect, width, height, theme);
+    });
+  });
+
+  drawMeasuredChampionStrip(context, posterRect, width, height, theme);
+}
+
+function measuredTheme(themeName) {
+  const themes = {
+    midnight: { bg1: "#101513", bg2: "#17231d", text: "#f4f7f2", muted: "#a9b7af", accent: "#d8ff5f", line: "rgba(216,255,95,0.62)", card: "rgba(255,255,255,0.07)" },
+    paper: { bg1: "#f4efe2", bg2: "#e8dfcb", text: "#172018", muted: "#536157", accent: "#c5142f", line: "rgba(197,20,47,0.58)", card: "rgba(23,32,24,0.05)" },
+    electric: { bg1: "#08111f", bg2: "#122344", text: "#f4f7f2", muted: "#a9b7af", accent: "#67e8f9", line: "rgba(103,232,249,0.62)", card: "rgba(255,255,255,0.07)" },
+    crimson: { bg1: "#8e1028", bg2: "#420817", text: "#fff6f1", muted: "#f4b7ad", accent: "#ffd15a", line: "rgba(255,209,90,0.64)", card: "rgba(255,246,241,0.08)" },
+    gold: { bg1: "#090b0d", bg2: "#2c2412", text: "#fff8df", muted: "#cdbf8b", accent: "#f5c95a", line: "rgba(245,201,90,0.62)", card: "rgba(255,248,223,0.07)" },
+    ice: { bg1: "#f8fbfc", bg2: "#d8e8ed", text: "#10212a", muted: "#55707b", accent: "#0a8fbb", line: "rgba(10,143,187,0.62)", card: "rgba(16,33,42,0.06)" },
+  };
+  return themes[themeName] || themes.crimson;
+}
+
+function drawMeasuredBackground(context, theme, width, height) {
+  const gradient = context.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, theme.bg1);
+  gradient.addColorStop(1, theme.bg2);
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, width, height);
+
+  context.save();
+  context.globalAlpha = 0.18;
+  context.strokeStyle = theme.text;
+  context.lineWidth = 1;
+  for (let x = 0; x <= width; x += 44) {
+    context.beginPath();
+    context.moveTo(x, 0);
+    context.lineTo(x, height);
+    context.stroke();
+  }
+  for (let y = 0; y <= height; y += 44) {
+    context.beginPath();
+    context.moveTo(0, y);
+    context.lineTo(width, y);
+    context.stroke();
+  }
+  context.restore();
+}
+
+function drawMeasuredBracketLines(context, theme, posterRect, width, height) {
+  const bracketElement = poster.querySelector("#bracket");
+  const lines = bracketElement.querySelector(".bracket-lines");
+  if (!lines) return;
+
+  const bracketRect = toCanvasRect(bracketElement.getBoundingClientRect(), posterRect, width, height);
+  const viewBox = lines.getAttribute("viewBox").split(/\s+/).map(Number);
+  const scaleX = bracketRect.w / viewBox[2];
+  const scaleY = bracketRect.h / viewBox[3];
+
+  context.save();
+  context.translate(bracketRect.x, bracketRect.y);
+  context.scale(scaleX, scaleY);
+  context.strokeStyle = theme.line;
+  context.lineWidth = 2.5 / Math.max(scaleX, scaleY);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  lines.querySelectorAll("path").forEach((path) => {
+    context.stroke(new Path2D(path.getAttribute("d")));
+  });
+  context.restore();
+}
+
+function drawMeasuredCard(context, element, posterRect, width, height, theme) {
+  const rect = toCanvasRect(element.getBoundingClientRect(), posterRect, width, height);
+  const isWinner = element.classList.contains("is-winner") || element.classList.contains("final-card");
+
+  roundedPath(context, rect.x, rect.y, rect.w, rect.h, 7);
+  context.fillStyle = isWinner ? rgbaFromHex(theme.accent, element.classList.contains("final-card") ? 0.18 : 0.22) : theme.card;
+  context.fill();
+  context.strokeStyle = isWinner ? theme.accent : rgbaFromHex(theme.text, 0.22);
+  context.lineWidth = isWinner ? 2 : 1;
+  context.stroke();
+}
+
+function drawMeasuredText(context, element, posterRect, width, height, theme) {
+  const rect = toCanvasRect(element.getBoundingClientRect(), posterRect, width, height);
+  const styles = getComputedStyle(element);
+  const text = element.textContent.trim();
+  if (!text) return;
+
+  const fontSize = parseFloat(styles.fontSize) * (height / posterRect.height);
+  const weight = styles.fontWeight || "900";
+  context.font = `${weight} ${fontSize}px sans-serif`;
+  context.fillStyle = normalizeCanvasColor(styles.color, theme);
+  context.textBaseline = "middle";
+  context.textAlign = textAlignFor(element);
+
+  const x = context.textAlign === "center" ? rect.x + rect.w / 2 : context.textAlign === "right" ? rect.x + rect.w : rect.x;
+  fitAndFillText(context, text, x, rect.y + rect.h / 2, rect.w, fontSize);
+}
+
+function drawMeasuredChampionStrip(context, posterRect, width, height, theme) {
+  const strip = poster.querySelector(".champion-strip");
+  const rect = toCanvasRect(strip.getBoundingClientRect(), posterRect, width, height);
+  context.strokeStyle = rgbaFromHex(theme.text, 0.22);
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(rect.x, rect.y);
+  context.lineTo(rect.x + rect.w, rect.y);
+  context.moveTo(rect.x, rect.y + rect.h);
+  context.lineTo(rect.x + rect.w, rect.y + rect.h);
+  context.stroke();
+}
+
+function toCanvasRect(rect, posterRect, width, height) {
+  return {
+    x: ((rect.left - posterRect.left) / posterRect.width) * width,
+    y: ((rect.top - posterRect.top) / posterRect.height) * height,
+    w: (rect.width / posterRect.width) * width,
+    h: (rect.height / posterRect.height) * height,
+  };
+}
+
+function textAlignFor(element) {
+  if (element.matches("#posterWatermark")) return "right";
+  if (element.closest(".final-card")) return "center";
+  if (element.matches("#championName")) return "left";
+  if (element.matches(".champion-strip span")) return "right";
+  return "left";
+}
+
+function fitAndFillText(context, text, x, y, maxWidth, startSize) {
+  const font = context.font;
+  let size = startSize;
+  while (size > 8 && context.measureText(text).width > maxWidth) {
+    size -= 1;
+    context.font = font.replace(/[\d.]+px/, `${size}px`);
+  }
+  context.fillText(text, x, y);
+}
+
+function roundedPath(context, x, y, width, height, radius) {
+  context.beginPath();
+  context.moveTo(x + radius, y);
+  context.arcTo(x + width, y, x + width, y + height, radius);
+  context.arcTo(x + width, y + height, x, y + height, radius);
+  context.arcTo(x, y + height, x, y, radius);
+  context.arcTo(x, y, x + width, y, radius);
+  context.closePath();
+}
+
+function rgbaFromHex(hex, alpha) {
+  const value = hex.replace("#", "");
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function normalizeCanvasColor(color, theme) {
+  if (color.startsWith("color(") || color.startsWith("oklch(")) {
+    return theme.text;
+  }
+  return color;
 }
 
 document.querySelector("#resetTeams").addEventListener("click", () => {
