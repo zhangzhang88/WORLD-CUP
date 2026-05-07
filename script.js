@@ -419,13 +419,86 @@ function escapeHtml(value) {
 }
 
 function exportPoster() {
+  exportPosterFromDom().catch((error) => {
+    console.warn("DOM export failed, falling back to canvas export.", error);
+    exportPosterFromCanvas();
+  });
+}
+
+function inlineCssText() {
+  const styles = [...document.styleSheets]
+    .map((sheet) => {
+      try {
+        return [...sheet.cssRules].map((rule) => rule.cssText).join("\n");
+      } catch {
+        return "";
+      }
+    })
+    .join("\n");
+  return styles.replaceAll("backdrop-filter: blur(16px);", "");
+}
+
+function exportPosterFromDom() {
+  drawBracketLines();
+  const clone = poster.cloneNode(true);
+  clone.style.width = "980px";
+  clone.style.height = "720px";
+  clone.style.maxWidth = "none";
+  clone.style.transform = "none";
+  clone.style.margin = "0";
+
+  const markup = new XMLSerializer().serializeToString(clone);
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="980" height="720" viewBox="0 0 980 720">
+      <foreignObject width="980" height="720">
+        <div xmlns="http://www.w3.org/1999/xhtml">
+          <style>${inlineCssText()}</style>
+          ${markup}
+        </div>
+      </foreignObject>
+    </svg>
+  `;
+
+  const image = new Image();
+  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(svgBlob);
+
+  return new Promise((resolve, reject) => {
+    image.onload = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1960;
+        canvas.height = 1440;
+        const context = canvas.getContext("2d");
+        context.scale(2, 2);
+        context.drawImage(image, 0, 0);
+        URL.revokeObjectURL(url);
+        downloadCanvas(canvas);
+        resolve();
+      } catch (error) {
+        URL.revokeObjectURL(url);
+        reject(error);
+      }
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("无法渲染海报 SVG"));
+    };
+    image.src = url;
+  });
+}
+
+function exportPosterFromCanvas() {
   const canvas = document.createElement("canvas");
   canvas.width = 1960;
   canvas.height = 1440;
   const context = canvas.getContext("2d");
   context.scale(2, 2);
   drawExportPoster(context);
+  downloadCanvas(canvas);
+}
 
+function downloadCanvas(canvas) {
   canvas.toBlob((blob) => {
     if (!blob) {
       alert("导出失败，请再试一次。");
