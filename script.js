@@ -262,12 +262,16 @@ function scheduleLineRender() {
 }
 
 function drawBracketLines() {
-  const existing = bracket.querySelector(".bracket-lines");
+  drawBracketLinesFor(bracket);
+}
+
+function drawBracketLinesFor(targetBracket) {
+  const existing = targetBracket.querySelector(".bracket-lines");
   existing?.remove();
 
   const rect = {
-    width: bracket.clientWidth,
-    height: bracket.clientHeight,
+    width: targetBracket.clientWidth,
+    height: targetBracket.clientHeight,
   };
   if (!rect.width || !rect.height) {
     return;
@@ -278,19 +282,19 @@ function drawBracketLines() {
   svg.setAttribute("viewBox", `0 0 ${rect.width} ${rect.height}`);
   svg.setAttribute("preserveAspectRatio", "none");
 
-  const columns = [...bracket.querySelectorAll(".round")];
-  connectColumns(svg, rect, columns[0], columns[1], "right");
-  connectColumns(svg, rect, columns[1], columns[2], "right");
-  connectColumns(svg, rect, columns[2], columns[3], "right", 0);
-  connectColumns(svg, rect, columns[6], columns[5], "left");
-  connectColumns(svg, rect, columns[5], columns[4], "left");
-  connectColumns(svg, rect, columns[4], columns[3], "left", 0);
-  connectFinalToChampion(svg, rect, columns[3]);
+  const columns = [...targetBracket.querySelectorAll(".round")];
+  connectColumns(svg, rect, targetBracket, columns[0], columns[1], "right");
+  connectColumns(svg, rect, targetBracket, columns[1], columns[2], "right");
+  connectColumns(svg, rect, targetBracket, columns[2], columns[3], "right", 0);
+  connectColumns(svg, rect, targetBracket, columns[6], columns[5], "left");
+  connectColumns(svg, rect, targetBracket, columns[5], columns[4], "left");
+  connectColumns(svg, rect, targetBracket, columns[4], columns[3], "left", 0);
+  connectFinalToChampion(svg, rect, targetBracket, columns[3]);
 
-  bracket.prepend(svg);
+  targetBracket.prepend(svg);
 }
 
-function connectColumns(svg, bracketRect, fromColumn, toColumn, direction, targetIndexOffset = null) {
+function connectColumns(svg, bracketRect, targetBracket, fromColumn, toColumn, direction, targetIndexOffset = null) {
   const fromMatches = [...fromColumn.querySelectorAll(".match")];
   const toMatches = [...toColumn.querySelectorAll(".match")];
 
@@ -301,32 +305,32 @@ function connectColumns(svg, bracketRect, fromColumn, toColumn, direction, targe
       return;
     }
 
-    drawConnector(svg, bracketRect, fromMatch, toMatch, direction);
+    drawConnector(svg, bracketRect, targetBracket, fromMatch, toMatch, direction);
   });
 }
 
-function connectFinalToChampion(svg, bracketRect, finalColumn) {
+function connectFinalToChampion(svg, bracketRect, targetBracket, finalColumn) {
   const finalMatch = finalColumn.querySelector(".match");
   const finalCard = finalColumn.querySelector(".final-card");
   if (!finalMatch || !finalCard) {
     return;
   }
 
-  const start = pointFor(finalMatch, bracketRect, "bottom");
-  const end = pointFor(finalCard, bracketRect, "top");
+  const start = pointFor(finalMatch, bracketRect, "bottom", targetBracket);
+  const end = pointFor(finalCard, bracketRect, "top", targetBracket);
   const midY = start.y + (end.y - start.y) * 0.5;
   addPath(svg, `M ${start.x} ${start.y} V ${midY} H ${end.x} V ${end.y}`, true);
 }
 
-function drawConnector(svg, bracketRect, fromElement, toElement, direction) {
-  const start = pointFor(fromElement, bracketRect, direction === "right" ? "right" : "left");
-  const end = pointFor(toElement, bracketRect, direction === "right" ? "left" : "right");
+function drawConnector(svg, bracketRect, targetBracket, fromElement, toElement, direction) {
+  const start = pointFor(fromElement, bracketRect, direction === "right" ? "right" : "left", targetBracket);
+  const end = pointFor(toElement, bracketRect, direction === "right" ? "left" : "right", targetBracket);
   const midX = start.x + (end.x - start.x) * 0.5;
   addPath(svg, `M ${start.x} ${start.y} H ${midX} V ${end.y} H ${end.x}`, false);
 }
 
-function pointFor(element, bracketRect, edge) {
-  const rect = localBox(element, bracket);
+function pointFor(element, bracketRect, edge, targetBracket = bracket) {
+  const rect = localBox(element, targetBracket);
   const xByEdge = {
     left: rect.left,
     right: rect.left + rect.width,
@@ -438,7 +442,7 @@ function inlineCssText() {
   return styles.replaceAll("backdrop-filter: blur(16px);", "");
 }
 
-function exportPosterFromDom() {
+async function exportPosterFromDom() {
   drawBracketLines();
   const clone = poster.cloneNode(true);
   clone.style.width = "980px";
@@ -446,8 +450,26 @@ function exportPosterFromDom() {
   clone.style.maxWidth = "none";
   clone.style.transform = "none";
   clone.style.margin = "0";
+  clone.querySelector(".bracket-lines")?.remove();
+
+  const sandbox = document.createElement("div");
+  sandbox.style.position = "fixed";
+  sandbox.style.left = "-12000px";
+  sandbox.style.top = "0";
+  sandbox.style.width = "980px";
+  sandbox.style.height = "720px";
+  sandbox.style.pointerEvents = "none";
+  sandbox.style.opacity = "0";
+  sandbox.append(clone);
+  document.body.append(sandbox);
+
+  await new Promise((resolve) => requestAnimationFrame(resolve));
+
+  const cloneBracket = clone.querySelector("#bracket");
+  drawBracketLinesFor(cloneBracket);
 
   const markup = new XMLSerializer().serializeToString(clone);
+  sandbox.remove();
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="980" height="720" viewBox="0 0 980 720">
       <foreignObject width="980" height="720">
