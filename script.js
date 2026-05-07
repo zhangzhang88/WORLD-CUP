@@ -468,6 +468,7 @@ function drawMeasuredPoster(context) {
     ".eyebrow",
     "#posterTitle",
     "#posterWatermark",
+    ".team span",
     ".final-card small",
     ".final-card strong",
     ".champion-strip span",
