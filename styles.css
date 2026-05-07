@@ -568,14 +568,8 @@ select:focus {
 }
 
 @media (max-width: 760px) {
-  :root {
-    --mobile-poster-width: calc(100vw - 28px);
-    --mobile-poster-scale: calc((100vw - 28px) / 980);
-  }
-
   .shell {
     padding: 14px;
-    overflow-x: hidden;
   }
 
   .controls {
@@ -605,16 +599,21 @@ select:focus {
   .poster {
     width: 980px;
     aspect-ratio: 1.36 / 1;
-    transform: scale(calc((100vw - 28px) / 980));
-    transform-origin: top left;
     margin: 0;
   }
 
   .preview-wrap {
     display: block;
-    width: var(--mobile-poster-width);
-    min-height: calc(720px * var(--mobile-poster-scale));
+    width: calc(100vw - 28px);
+    min-height: 720px;
     margin: 0 auto;
-    overflow: visible;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+
+  .preview-wrap .poster {
+    scroll-snap-align: start;
   }
 }
